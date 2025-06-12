@@ -3,7 +3,7 @@ import path from "path";
 import { getBearerToken, validateJWT } from "../auth";
 import { getVideo, updateVideo, type Video } from "../db/videos";
 import { respondWithJSON } from "./json";
-import { uploadVideoToS3, generatePresignedURL } from "../s3";
+import { uploadVideoToS3 } from "../s3";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
 
 import { type ApiConfig } from "../config";
@@ -49,7 +49,8 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   const key = `${aspectRatio}/${videoId}.mp4`;
   await uploadVideoToS3(cfg, key, processedFilePath, "video/mp4");
 
-  video.videoURL = `${key}`;
+  const videoURL = `${cfg.s3CfDistribution}/${key}`;
+  video.videoURL = videoURL;
   updateVideo(cfg.db, video);
 
   await Promise.all([
@@ -131,14 +132,4 @@ export async function processVideoForFastStart(inputFilePath: string) {
   }
 
   return processedFilePath;
-}
-
-export async function dbVideoToSignedVideo(cfg: ApiConfig, video: Video) {
-  if (!video.videoURL) {
-    return video;
-  }
-
-  video.videoURL = await generatePresignedURL(cfg, video.videoURL, 5 * 60);
-
-  return video;
 }
